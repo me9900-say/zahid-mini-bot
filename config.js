@@ -51,16 +51,18 @@ module.exports = {
     GOODBYE_IMAGE: process.env.GOODBYE_IMAGE || null,
     
     GROUP_INVITE_LINK: process.env.GROUP_INVITE_LINK || 'https://chat.whatsapp.com/B9aQvczskhr7gekKrAjCsm?s=cl&p=a&mlu=0&amv=1',
-    ANTI_LINK: true,  // Add this anywhere in config
     // ===========================================================
-    // 6. SÉCURITÉ & ANTI-CALL
-    // ===========================================================
-    ANTI_CALL: process.env.ANTI_CALL || 'false', // Rejeter les appels
-    REJECT_MSG: process.env.REJECT_MSG || '*CALL LATER PLEASE ☺️🌹*',
-    
-    // ===========================================================
-    // 7. IMAGES & LIENS
-    // ===========================================================
+// 6. SÉCURITÉ & ANTI-CALL
+// ===========================================================
+ANTI_CALL: process.env.ANTI_CALL || 'false', // Rejeter les appels
+REJECT_MSG: process.env.REJECT_MSG || '*CALL LATER PLEASE ☺️🌹*',
+
+// 🔥 ANTI-LINK - ADD THIS 🔥
+ANTI_LINK: process.env.ANTI_LINK || 'true', // Bloquer les liens dans les groupes
+
+// ===========================================================
+// 7. IMAGES & LIENS
+// ===========================================================
     IMAGE_PATH: 'https://files.catbox.moe/himp43.jpg',
     CHANNEL_LINK: 'https://whatsapp.com/channel/0029VbBhyp7BfxoEclHqI33Y',
     
