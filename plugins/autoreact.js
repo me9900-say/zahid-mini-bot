@@ -1,120 +1,99 @@
-const { cmd } = require('../zaidi');
-const { updateUserConfig } = require('../lib/database');
+// plugins/autoreact.js
+// Place this file in: plugins/autoreact.js
 
-// ============================================================
-// AUTO REACT PLUGIN — zahid-mini-bot
-// Files: plugins/autoreact.js (NEW)
-// ============================================================
+const { cmd } = require('../zaidi');
+const { getAutoreactSettings, setAutoreactSettings } = require('../data/Antilink');
 
 const DEFAULT_EMOJIS = ['❤️', '😍', '🔥', '👑', '💫', '✨', '😎', '🤩', '💕', '🌹'];
 
-function getRC(config) {
-    return {
-        enabled: config.AUTO_REACT === 'true',
-        groupReact: config.AUTO_REACT_GROUP !== 'false',
-        inboxReact: config.AUTO_REACT_INBOX !== 'false',
-        cmdOnly: config.AUTO_REACT_CMD_ONLY === 'true',
-        emojis: (config.AUTO_REACT_EMOJIS && config.AUTO_REACT_EMOJIS.length) ? config.AUTO_REACT_EMOJIS : DEFAULT_EMOJIS
-    };
+function toFancy(text) {
+    const map = { 'a':'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ғ','g':'ɢ','h':'ʜ','i':'ɪ','j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ','n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ','s':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ' };
+    return text.toLowerCase().split('').map(c => map[c] || c).join('');
 }
 
-// ==================== COMMAND ====================
 cmd({
     pattern: 'autoreact',
     alias: ['areact'],
-    desc: 'Enable/disable auto react on messages',
+    desc: 'Auto react on/off karo messages par',
     category: 'settings',
     react: '😍',
     filename: __filename
-}, async (conn, mek, m, { args, isOwner, reply, botNumber, config }) => {
-    if (!isOwner) return reply('❌ Sirf owner use kar sakta hai.');
+}, async (conn, mek, m, { args, isOwner, reply, botNumber }) => {
+    if (!isOwner) return reply(`❌ ${toFancy('Owner Only')} 😎`);
 
     const value = args[0]?.toLowerCase();
-    const rc = getRC(config);
+    const rc = await getAutoreactSettings(botNumber);
 
     if (value === 'on') {
-        config.AUTO_REACT = 'true';
-        await updateUserConfig(botNumber, config);
+        await setAutoreactSettings(botNumber, { ...rc, enabled: true });
         return reply(
-`*╭─── 😍 AUTO REACT ───╮*
-*│ ✅ Status: ON*
-*│ 🏘 Group: ${rc.groupReact ? 'ON' : 'OFF'}*
-*│ 📩 Inbox: ${rc.inboxReact ? 'ON' : 'OFF'}*
-*│ 🎯 Cmd Only: ${rc.cmdOnly ? 'YES' : 'NO'}*
-*│ Emojis: ${rc.emojis.join(' ')}*
-*╰────────────────────○*
+`╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷
+┃❃╭──────────────
+┃❃│ 😍 ${toFancy('Auto React')}
+┃❃│ ✅ ${toFancy('Status')}: ${toFancy('Activated')}
+┃❃│ 🏘 ${toFancy('Group')}: ${rc.groupReact ? toFancy('On') : toFancy('Off')}
+┃❃│ 📩 ${toFancy('Inbox')}: ${rc.inboxReact ? toFancy('On') : toFancy('Off')}
+┃❃│ 🎯 ${toFancy('Cmd Only')}: ${rc.cmdOnly ? toFancy('Yes') : toFancy('No')}
+┃❃│ Emojis: ${rc.emojis.join(' ')}
+┃❃╰───────────────
+╰═════════════════⊷
+
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`
         );
     } else if (value === 'off') {
-        config.AUTO_REACT = 'false';
-        await updateUserConfig(botNumber, config);
+        await setAutoreactSettings(botNumber, { ...rc, enabled: false });
         return reply(
-`*╭─── 😍 AUTO REACT ───╮*
-*│ ❌ Status: OFF*
-*╰────────────────────○*
+`╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷
+┃❃╭──────────────
+┃❃│ 😍 ${toFancy('Auto React')}
+┃❃│ ❌ ${toFancy('Status')}: ${toFancy('Deactivated')}
+┃❃╰───────────────
+╰═════════════════⊷
+
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`
         );
     } else if (value === 'group') {
-        const val = (args[1] === 'on') ? 'true' : 'false';
-        config.AUTO_REACT_GROUP = val;
-        await updateUserConfig(botNumber, config);
-        return reply(`✅ Group Auto React: *${val === 'true' ? 'ON' : 'OFF'}*`);
+        const val = args[1] === 'on';
+        await setAutoreactSettings(botNumber, { ...rc, groupReact: val });
+        return reply(`✅ Group Auto React: *${val ? 'ON' : 'OFF'}*`);
     } else if (value === 'inbox') {
-        const val = (args[1] === 'on') ? 'true' : 'false';
-        config.AUTO_REACT_INBOX = val;
-        await updateUserConfig(botNumber, config);
-        return reply(`✅ Inbox Auto React: *${val === 'true' ? 'ON' : 'OFF'}*`);
+        const val = args[1] === 'on';
+        await setAutoreactSettings(botNumber, { ...rc, inboxReact: val });
+        return reply(`✅ Inbox Auto React: *${val ? 'ON' : 'OFF'}*`);
     } else if (value === 'cmdonly') {
-        const val = (args[1] === 'on') ? 'true' : 'false';
-        config.AUTO_REACT_CMD_ONLY = val;
-        await updateUserConfig(botNumber, config);
-        return reply(`✅ Command Only React: *${val === 'true' ? 'YES' : 'NO'}*`);
+        const val = args[1] === 'on';
+        await setAutoreactSettings(botNumber, { ...rc, cmdOnly: val });
+        return reply(`✅ ${toFancy('Command Only React')}: *${val ? 'YES' : 'NO'}*`);
     } else if (value === 'setemoji') {
         const emojis = args.slice(1);
         if (!emojis.length) return reply('❌ Example: .autoreact setemoji ❤️ 🔥 😍 👑');
-        config.AUTO_REACT_EMOJIS = emojis;
-        await updateUserConfig(botNumber, config);
-        return reply(`✅ Emojis set: ${emojis.join(' ')}`);
+        await setAutoreactSettings(botNumber, { ...rc, emojis });
+        return reply(`✅ ${toFancy('Emojis Set')}: ${emojis.join(' ')}`);
     } else if (value === 'reset') {
-        config.AUTO_REACT_EMOJIS = DEFAULT_EMOJIS;
-        await updateUserConfig(botNumber, config);
-        return reply(`✅ Emojis reset: ${DEFAULT_EMOJIS.join(' ')}`);
+        await setAutoreactSettings(botNumber, { ...rc, emojis: DEFAULT_EMOJIS });
+        return reply(`✅ ${toFancy('Emojis Reset')}: ${DEFAULT_EMOJIS.join(' ')}`);
     } else {
         return reply(
-`*╭─── 😍 AUTO REACT STATUS ───╮*
-*│ Status: ${rc.enabled ? '✅ ON' : '❌ OFF'}*
-*│ 🏘 Group: ${rc.groupReact ? 'ON' : 'OFF'}*
-*│ 📩 Inbox: ${rc.inboxReact ? 'ON' : 'OFF'}*
-*│ 🎯 Cmd Only: ${rc.cmdOnly ? 'YES' : 'NO'}*
-*│ Emojis: ${rc.emojis.join(' ')}*
-*│*
-*│ Commands:*
-*│ .autoreact on/off*
-*│ .autoreact group on/off*
-*│ .autoreact inbox on/off*
-*│ .autoreact cmdonly on/off*
-*│ .autoreact setemoji ❤️ 🔥 ...*
-*│ .autoreact reset*
-*╰────────────────────○*
+`╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷
+┃❃╭──────────────
+┃❃│ 😍 ${toFancy('Auto React Status')}
+┃❃│ ${rc.enabled ? '✅' : '❌'} ${toFancy('Status')}: ${rc.enabled ? toFancy('On') : toFancy('Off')}
+┃❃│ 🏘 ${toFancy('Group')}: ${rc.groupReact ? toFancy('On') : toFancy('Off')}
+┃❃│ 📩 ${toFancy('Inbox')}: ${rc.inboxReact ? toFancy('On') : toFancy('Off')}
+┃❃│ 🎯 ${toFancy('Cmd Only')}: ${rc.cmdOnly ? toFancy('Yes') : toFancy('No')}
+┃❃│ Emojis: ${rc.emojis.join(' ')}
+┃❃│ ──────────────
+┃❃│ 💡 ${toFancy('Commands')}:
+┃❃│ .autoreact on/off
+┃❃│ .autoreact group on/off
+┃❃│ .autoreact inbox on/off
+┃❃│ .autoreact cmdonly on/off
+┃❃│ .autoreact setemoji ❤️ 🔥 ...
+┃❃│ .autoreact reset
+┃❃╰───────────────
+╰═════════════════⊷
+
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`
         );
     }
-});
-
-// ==================== LISTENER ====================
-cmd({
-    on: 'body',
-    dontAddCommandList: true
-}, async (conn, mek, m, { from, isGroup, isCmd, config }) => {
-    try {
-        const rc = getRC(config);
-        if (!rc.enabled) return;
-        if (isGroup && !rc.groupReact) return;
-        if (!isGroup && !rc.inboxReact) return;
-        if (rc.cmdOnly && !isCmd) return;
-        if (mek.key.fromMe) return;
-
-        const emoji = rc.emojis[Math.floor(Math.random() * rc.emojis.length)];
-        await conn.sendMessage(from, { react: { text: emoji, key: mek.key } });
-    } catch (_) {}
 });
