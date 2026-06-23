@@ -15,24 +15,25 @@ cmd({
         if (!args[0]) return reply("❌ *Please provide a TikTok video link!*");
         if (!args[0].includes("tiktok.com")) return reply("❌ *Invalid URL! Please provide a valid TikTok link.*");
 
-        // Requesting Arslan API
-        const apiUrl = `https://arslan-apis-v2.vercel.app/download/tiktokdl?url=${encodeURIComponent(args[0])}`;
+        // Requesting Faizan API
+        const apiUrl = `https://faizan-api.vercel.app/api/tiktok?url=${encodeURIComponent(args[0])}`;
         const response = await axios.get(apiUrl);
         
         const data = response.data;
         
-        // Check if API returned success and has video data
-        if (!data || !data.result || !data.result.video) {
-            return reply("❌ *Failed to fetch video! Try again later.*");
+        // Checking API success response as per new JSON structure
+        if (!data || data.success !== true || !data.mp4) {
+            return reply("❌ *Failed to fetch video! API response error.*");
         }
 
-        const videoUrl = data.result.video;
-        const videoTitle = data.result.title || "TikTok Video";
+        // Preferring HD video if available, otherwise falling back to normal MP4
+        const videoUrl = data.mp4_hd || data.mp4;
+        const videoTitle = data.title || "TikTok Video";
 
         // Direct Single Message: Send Video with caption and newsletter context
         await conn.sendMessage(from, {
             video: { url: videoUrl },
-            caption: `*📥 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 𝘛𝘐𝘒𝘛𝘖𝘒 𝘋𝘖𝘞𝘕𝘓𝘖𝘈𝘋𝘌𝘙*\n\n*📌 Title:* ${videoTitle}\n\n*> Powered by ZAIDI MDᥫ᭡`,
+            caption: `*📥 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 𝘛𝘐𝘖𝘛𝘖𝘒 𝘋𝘖𝘞𝘕𝘓𝘖𝘈𝘋𝘌𝘙*\n\n*📌 Title:* ${videoTitle}\n\n*> Powered by ZAIDI MDᥫ᭡`,
             contextInfo: {
                 forwardingScore: 999,
                 isForwarded: true,
