@@ -886,10 +886,14 @@ cmd({
     category: "group",
     react: "🔗",
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, isAdmins, reply, args }) => {
+}, async (conn, mek, m, { from, isGroup, isAdmins, isCreator, reply, args }) => {
     try {
         if (!isGroup) return reply("❌ This command only works in groups.");
-        if (!isAdmins) return reply("❌ Only admins can use this command.");
+        
+        // Admin OR Owner allow karein
+        if (!isAdmins && !isCreator) {
+            return reply("❌ Only admins or bot owner can use this command.");
+        }
         
         const status = args[0]?.toLowerCase();
         if (!status || (status !== 'on' && status !== 'off')) {
