@@ -878,3 +878,49 @@ cmd({
         reply(`❌ Error: ${e.message}`);
     }
 });
+
+// ==================== ANTI-LINK TOGGLE ====================
+cmd({
+    pattern: "antilink",
+    desc: "Enable or disable anti-link in group",
+    category: "group",
+    react: "🔗",
+    filename: __filename
+}, async (conn, mek, m, { from, isGroup, isAdmins, reply, args }) => {
+    try {
+        if (!isGroup) return reply("❌ This command only works in groups.");
+        if (!isAdmins) return reply("❌ Only admins can use this command.");
+        
+        const status = args[0]?.toLowerCase();
+        if (!status || (status !== 'on' && status !== 'off')) {
+            const currentStatus = config.ANTI_LINK ? '✅ ON' : '❌ OFF';
+            return reply(`╭═══ 🔗 ANTI-LINK ═══⊷
+┃❃╭──────────────
+┃❃│ 📌 Current: ${currentStatus}
+┃❃│ 📝 Usage: .antilink on/off
+┃❃╰───────────────
+╰═════════════════⊷
+
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`);
+        }
+        
+        const newStatus = status === 'on';
+        config.ANTI_LINK = newStatus;
+        
+        const replyMsg = `╭═══ 🔗 ANTI-LINK ═══⊷
+┃❃╭──────────────
+┃❃│ ${newStatus ? '✅ Enabled' : '❌ Disabled'} successfully!
+┃❃│ 📌 Status: ${newStatus ? '🟢 Active' : '🔴 Inactive'}
+┃❃╰───────────────
+╰═════════════════⊷
+
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`;
+        
+        await conn.sendMessage(from, { react: { text: newStatus ? '✅' : '❌', key: mek.key } });
+        return reply(replyMsg);
+        
+    } catch (error) {
+        console.error('Anti-link command error:', error);
+        return reply("❌ Failed to toggle anti-link!");
+    }
+});
