@@ -30,6 +30,8 @@ const {
 } = require('./lib/database');
 const { handleAntidelete } = require('./lib/antidelete');
 const { handleAntiLink } = require('./lib/antiLink');
+// ✅ AUTO REACT + ANTILINK DATA FUNCTIONS — YEH LINE ADD KI HAI
+const { getAntilinkSettings, getAutoreactSettings, getWarn, setWarn, clearWarn } = require('./data/Antilink');
 
 const express = require('express');
 const fs = require('fs-extra');
