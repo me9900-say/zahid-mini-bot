@@ -18,7 +18,7 @@ cmd({
             react: { text: "📋", key: m.key }
         });
 
-        // 📊 Count commands
+        // 📊 Count commands & group them
         let totalCommands = 0;
         let grouped = {};
 
@@ -29,11 +29,11 @@ cmd({
             grouped[cmd.category].push(cmd.pattern);
         }
 
-        // ⏰ Time & Date
+        // ⏰ Time & Date (Aap apne zone ke hisab se badal sakte hain, e.g., Asia/Karachi)
         const time = moment().tz("Africa/Kampala").format("hh:mm:ss A");
         const date = moment().tz("Africa/Kampala").format("dddd, DD MMMM YYYY");
 
-        // 🎨 Build Menu
+        // 🎨 Build Header (Exact Layout)
         let menu = `*╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷*\n`;
         menu += `*┃❃╭──────────────*\n`;
         menu += `*┃❃│ ⏰ ᴛɪᴍᴇ: ${time}*\n`;
@@ -43,40 +43,53 @@ cmd({
         menu += `*┃❃╰───────────────*\n`;
         menu += `*╰═════════════════⊷*\n\n`;
 
-        // Categories with Bold Fancy Font
-        const categoryEmojis = {
-            "main": "💠",
-            "system": "🔧",
-            "settings": "⚙️",
-            "owner": "👑",
-            "group": "👥",
-            "admin": "🛡️",
-            "download": "📥",
-            "downloader": "📥",
-            "sticker": "🎨",
-            "fun": "🎮",
-            "general": "📌",
-            "tools": "🔧",
-            "search": "🔍"
+        // Category Emojis & Fancy Headers Mapping
+        const categoryMapping = {
+            "main": { emoji: "💠", title: "𝐌𝐚𝐢𝐧" },
+            "system": { emoji: "🔧", title: "𝐒𝐲𝐬𝐭main" },
+            "settings": { emoji: "⚙️", title: "𝐒𝐞𝐭𝐭𝐢𝐧𝐠𝐬" },
+            "owner": { emoji: "👑", title: "𝐎𝐰𝐧𝐞𝐫" },
+            "group": { emoji: "👥", title: "𝐆𝐫𝐨𝐮𝐩" },
+            "admin": { emoji: "🛡️", title: "𝐀𝐝𝐦𝐢𝐧" },
+            "download": { emoji: "📥", title: "𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝" },
+            "downloader": { emoji: "📥", title: "𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝" },
+            "sticker": { emoji: "🎨", title: "𝐒𝐭𝐢𝐜𝐤𝐞𝐫" },
+            "fun": { emoji: "🎮", title: "𝐅𝐮𝐧" },
+            "general": { emoji: "📌", title: "𝐆𝐞𝐧𝐞𝐫𝐚𝐥" },
+            "tools": { emoji: "🔧", title: "𝐓𝐨𝐨𝐥𝐬" },
+            "search": { emoji: "🔍", title: "𝐒𝐞𝐚𝐫𝐜𝐡" }
+        };
+
+        // Function to convert command name to Small Caps text
+        const toSmallCaps = (text) => {
+            const normal = "abcdefghijklmnopqrstuvwxyz";
+            const smallCaps = "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ";
+            return text.split('').map(char => {
+                const index = normal.indexOf(char.toLowerCase());
+                return index !== -1 ? smallCaps[index] : char;
+            }).join('');
         };
 
         const sortedCategories = Object.keys(grouped).sort();
 
+        // Build Categories & Commands List
         for (const cat of sortedCategories) {
-            const emoji = categoryEmojis[cat.toLowerCase()] || "✨";
-            // Bold Fancy Category Name
-            const fancyCat = cat.charAt(0).toUpperCase() + cat.slice(1);
-            menu += `*╭─❏ ${emoji} 𝐅${fancyCat.slice(1)} ${emoji} ❏*\n`;
+            const catKey = cat.toLowerCase();
+            const emoji = categoryMapping[catKey]?.emoji || "✨";
+            const fancyTitle = categoryMapping[catKey]?.title || cat.charAt(0).toUpperCase() + cat.slice(1);
+
+            menu += `*╭─❏ ${emoji} ${fancyTitle} ${emoji} ❏*\n`;
+            
             const sortedCmds = grouped[cat].sort();
             for (const c of sortedCmds) {
-                const fancyCmd = c.toLowerCase();
-                menu += `*│ ${fancyCmd}*\n`;
+                const smallCapsCmd = toSmallCaps(c);
+                menu += `*│ ${smallCapsCmd}*\n`;
             }
             menu += `*╰─────────────────*\n\n`;
         }
 
         // Footer
-        menu += `*> 𝛲𝜣𝑊𝛯𝑅𝛯𝐷 𝐵𝜳 𝛧𝜟𝛪𝐷𝛪 𝛭𝐷 ᥫ᭡*`;
+        menu += `*> 𝛲𝜣𝑊𝛯𝑅𝛯𝐷 𝐵𝜳 𝛧𝜟𝛪𝐃𝐈 𝛭 <𝛪 ᥫ᭡*`;
 
         // Send Menu with Image
         await conn.sendMessage(from, {
@@ -103,6 +116,7 @@ cmd({
         await conn.sendMessage(from, {
             react: { text: "❌", key: m.key }
         });
-        reply("❌ *Menu failed to load!*");
+        reply("❌ Menu failed to load!");
     }
+
 });
