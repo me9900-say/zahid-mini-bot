@@ -1,10 +1,26 @@
 const { cmd } = require('../zaidi');
 const axios = require('axios');
 
+// Internal Scraper to convert Song Name to YouTube Link seamlessly
+async function searchYouTube(query) {
+    try {
+        const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+        const response = await axios.get(searchUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        const html = response.data;
+        const match = html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
+        return match && match[1] ? `https://www.youtube.com/watch?v=${match[1]}` : null;
+    } catch (e) {
+        console.error("Internal Search Error:", e);
+        return null;
+    }
+}
+
 cmd({
-    pattern: "play",
-    alias: ["song", "naat", "ytmp3", "audio"],
-    desc: "🎵 Search and download YouTube audio via Faizan API",
+    pattern: "ytmp3",
+    alias: ["song", "audio", "play"],
+    desc: "🎵 Download YouTube audio via Faizan Custom API",
     category: "download",
     react: "🎵",
     filename: __filename
@@ -15,38 +31,40 @@ cmd({
 
         let videoUrl = text.trim();
 
-        // Agar user link nahi deta balki song name likhta hai, toh search API se link nikalenge
+        // Check if input is a name query, if so, extract video link
         if (!videoUrl.includes("youtube.com") && !videoUrl.includes("youtu.be")) {
-            const searchRes = await axios.get(`https://api.giftedtech.my.id/api/download/playaudio?search=${encodeURIComponent(text)}`);
-            if (searchRes.data && searchRes.data.result && searchRes.data.result.url) {
-                videoUrl = searchRes.data.result.url;
+            const foundUrl = await searchYouTube(videoUrl);
+            if (foundUrl) {
+                videoUrl = foundUrl;
             } else {
-                return reply("❌ *Song not found! Please try with accurate keywords.*");
+                return reply("❌ *Song not found! Please try with better keywords.*");
             }
         }
 
-        // Requesting Faizan YouTube Downloader API (Format: mp3)
-        const apiUrl = `https://faizan-api.vercel.app/api/ytdown?url=${encodeURIComponent(videoUrl)}&format=mp3`;
+        // Requesting your provided working Faizan API
+        const apiUrl = `https://faizan-api.vercel.app/api/ytmp3?url=${encodeURIComponent(videoUrl)}`;
         const response = await axios.get(apiUrl);
         const data = response.data;
 
-        // Validation based on your given JSON structure
-        if (!data || data.success !== true || !data.downloadURL) {
-            return reply("❌ *Failed to fetch download link from Faizan API!*");
+        // Validation based on your verified JSON output
+        if (!data || data.status !== true || !data.result || !data.result.download) {
+            return reply("❌ *Failed to fetch download link from the current API route.*");
         }
 
-        const songTitle = data.title || "YouTube Audio";
-        const audioUrl = data.downloadURL;
+        const songTitle = data.result.title || "YouTube Audio";
+        const duration = data.result.duration ? `${data.result.duration}s` : "Unknown";
+        const audioUrl = data.result.download;
 
-        // Step 1: Send Information with Thumbnail
-        // Auto generic thumbnail generation from video URL for layout stability
+        // Extract Video ID for high quality Thumbnail generation
         const videoId = videoUrl.includes("youtu.be/") ? videoUrl.split("youtu.be/")[1].split("?")[0] : videoUrl.split("v=")[1]?.split("&")[0];
         const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : "https://up6.cc/2026/05/177971006919991.png";
 
-        const infoText = `*🎵 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 𝘠𝘖𝘜𝘛𝘜𝘉𝘌 𝘗𝘓𝘈𝘠*\n\n` +
-                         `*📌 Title:* ${songTitle}\n\n` +
+        // Step 1: Send Information with Visual Thumbnail
+        const infoText = `*🎵 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 𝘠𝘖𝘜𝘛𝘜𝘉𝘌 𝘈𝘜𝘋𝘐𝘖*\n\n` +
+                         `*📌 Title:* ${songTitle}\n` +
+                         `*⏱️ Duration:* ${duration}\n\n` +
                          `*⏳ Sending audio file, please wait...*\n\n` +
-                         `*> 𝐷𝜣𝑊𝜨𝐿𝜣𝜟𝐷 𝐵𝜳 𝛧𝜜𝛪𝐷𝛪 𝛭𝐷📂`;
+                         `*> Powered by ZAIDI MDᥫ᭡`;
 
         const sentInfo = await conn.sendMessage(from, {
             image: { url: thumbnailUrl },
@@ -62,7 +80,7 @@ cmd({
             },
         }, { quoted: m });
 
-        // Step 2: Send Audio by quoting the above Info Message
+        // Step 2: Send Audio file directly quoting the info card
         await conn.sendMessage(from, {
             audio: { url: audioUrl },
             mimetype: 'audio/mp4',
@@ -70,7 +88,7 @@ cmd({
         }, { quoted: sentInfo });
 
     } catch (e) {
-        console.error("Play Downloader Error:", e);
-        reply("❌ *An error occurred while downloading the audio.*");
+        console.error("YT-MP3 Custom Downloader Error:", e);
+        reply("❌ *An error occurred while downloading the audio file.*");
     }
 });
