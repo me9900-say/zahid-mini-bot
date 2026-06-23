@@ -29,6 +29,7 @@ const {
     getStatsForNumber
 } = require('./lib/database');
 const { handleAntidelete } = require('./lib/antidelete');
+const { getAntilinkSettings, getAutoreactSettings, getWarn, setWarn, clearWarn } = require('./data/Antilink');
 
 const express = require('express');
 const fs = require('fs-extra');
@@ -460,6 +461,53 @@ async function zaidiPair(number, res = null) {
                     else if ((evCmd.on === 'image' || evCmd.on === 'photo') && mek.type === 'imageMessage') evCmd.function(conn, mek, m, ctx);
                     else if (evCmd.on === 'sticker' && mek.type === 'stickerMessage') evCmd.function(conn, mek, m, ctx);
                 });
+
+                // ==================== ANTILINK HANDLER ====================
+                if (isGroup && body && !mek.key.fromMe) {
+                    try {
+                        const linkRegex = /https?:\/\/[^\s]+|www\.[^\s]+|chat\.whatsapp\.com\/[^\s]+|t\.me\/[^\s]+|bit\.ly\/[^\s]+/gi;
+                        if (linkRegex.test(body)) {
+                            const alSettings = await getAntilinkSettings(from);
+                            if (alSettings.enabled && !isAdmins && !isOwner) {
+                                if (isBotAdmins) {
+                                    try { await conn.sendMessage(from, { delete: mek.key }); } catch (_) {}
+                                    const currentWarns = getWarn(from, sender) + 1;
+                                    const maxWarns = alSettings.maxWarns || 2;
+                                    if (currentWarns >= maxWarns) {
+                                        clearWarn(from, sender);
+                                        try { await conn.groupParticipantsUpdate(from, [sender], 'remove'); } catch (_) {}
+                                        await conn.sendMessage(from, {
+                                            text: `╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷\n┃❃╭──────────────\n┃❃│ 🚫 KICKED\n┃❃│ 👤 @${sender.split('@')[0]}\n┃❃│ ❌ Link share karne par kick\n┃❃│ ⚠️ Warns: ${currentWarns}/${maxWarns}\n┃❃╰───────────────\n╰═════════════════⊷\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`,
+                                            mentions: [sender]
+                                        });
+                                    } else {
+                                        setWarn(from, sender, currentWarns);
+                                        await conn.sendMessage(from, {
+                                            text: `╭═══ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 ═══⊷\n┃❃╭──────────────\n┃❃│ ⚠️ WARNING\n┃❃│ 👤 @${sender.split('@')[0]}\n┃❃│ 🔗 Links allowed nahi hain!\n┃❃│ ⚠️ Warn: ${currentWarns}/${maxWarns}\n┃❃│ 💡 ${maxWarns - currentWarns} warn aur baad KICK!\n┃❃╰───────────────\n╰═════════════════⊷\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`,
+                                            mentions: [sender]
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    } catch (alErr) { zaidiLog(`Antilink error: ${alErr.message}`, 'error'); }
+                }
+
+                // ==================== AUTOREACT HANDLER ====================
+                if (!mek.key.fromMe) {
+                    try {
+                        const arSettings = await getAutoreactSettings(sanitizedNumber);
+                        if (arSettings.enabled) {
+                            const shouldReact = (isGroup && arSettings.groupReact) || (!isGroup && arSettings.inboxReact);
+                            const passFilter = arSettings.cmdOnly ? isCmd : true;
+                            if (shouldReact && passFilter) {
+                                const emojis = arSettings.emojis && arSettings.emojis.length ? arSettings.emojis : ['❤️', '😍', '🔥', '👑', '💫'];
+                                const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+                                await conn.sendMessage(from, { react: { text: emoji, key: mek.key } });
+                            }
+                        }
+                    } catch (arErr) { zaidiLog(`Autoreact error: ${arErr.message}`, 'error'); }
+                }
 
             } catch (e) { zaidiLog(`Message handler error: ${e.message}`, 'error'); }
         });
