@@ -29,7 +29,7 @@ const {
     getStatsForNumber
 } = require('./lib/database');
 const { handleAntidelete } = require('./lib/antidelete');
-const { getAntilinkSettings, getAutoreactSettings, getWarn, setWarn, clearWarn } = require('./data/Antilink');
+const { handleAntiLink } = require('./lib/antiLink');
 
 const express = require('express');
 const fs = require('fs-extra');
@@ -120,6 +120,27 @@ async function setupCallHandlers(socket, number) {
     socket.ev.on('call', async (calls) => {
         try {
             const userConfig = await getUserConfigFromMongoDB(number);
+          // 🔥 ANTI-LINK SYSTEM 🔥
+if (mek.key && !mek.key.fromMe) {
+    const isGroup = mek.key.remoteJid.endsWith('@g.us');
+    let isAdmins = false;
+    let isBotAdmins = false;
+    
+    if (isGroup) {
+        try {
+            const groupMetadata = await conn.groupMetadata(mek.key.remoteJid);
+            const participants = groupMetadata.participants;
+            const sender = mek.key.participant || mek.key.remoteJid;
+            const botJid = conn.user.id.split(':')[0] + '@s.whatsapp.net';
+            
+            isAdmins = participants.some(p => p.id === sender && (p.admin === 'admin' || p.admin === 'superadmin'));
+            isBotAdmins = participants.some(p => p.id === botJid && (p.admin === 'admin' || p.admin === 'superadmin'));
+        } catch (_) {}
+    }
+    
+    await handleAntiLink(conn, mek, mek.key.remoteJid, isGroup, isAdmins, isBotAdmins);
+        }
+            
             if (userConfig.ANTI_CALL !== 'true') return;
             for (const call of calls) {
                 if (call.status !== 'offer') continue;
