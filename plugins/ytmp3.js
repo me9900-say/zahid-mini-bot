@@ -1,70 +1,127 @@
-const { cmd } = require('../zaidi');
+const { cmd } = require('../zaidi'); // Custom bot handler matching your instance path
 const axios = require('axios');
+const yts = require('yt-search');
 
-// Ultra Fast Internal Scraper
-async function searchYouTube(query) {
-    try {
-        const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-        const response = await axios.get(searchUrl);
-        const html = response.data;
-        const match = html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
-        return match && match[1] ? `https://www.youtube.com/watch?v=${match[1]}` : null;
-    } catch (e) {
-        return null;
+// ============ MULTI-API SYSTEM WITH FAIZAN API AS PRIMARY ============
+const APIS = [
+    {
+        name: "Faizan API",
+        url: (ytLink) => `https://faizan-api.vercel.app/api/ytmp3?url=${encodeURIComponent(ytLink)}`,
+        getAudioUrl: (data) => {
+            if (data?.status && data?.result?.download) {
+                return data.result.download;
+            }
+            return null;
+        },
+        getTitle: (data) => data?.result?.title
     }
+];
+
+// ============ REUSABLE ADVANCED API LOOP HANDLING ============
+async function getAudioFromApi(youtubeUrl) {
+    for (const api of APIS) {
+        try {
+            console.log(`📡 Fetching via ${api.name}...`);
+            const response = await axios.get(api.url(youtubeUrl), { timeout: 30000 });
+            const audioUrl = api.getAudioUrl(response.data);
+            
+            if (audioUrl) {
+                console.log(`✅ ${api.name} Success!`);
+                return {
+                    success: true,
+                    audioUrl: audioUrl,
+                    title: api.getTitle(response.data) || null,
+                    apiUsed: api.name
+                };
+            }
+        } catch (error) {
+            console.log(`❌ ${api.name} Failed:`, error.message);
+        }
+    }
+    return { success: false, error: "All backend stream sources failed" };
 }
 
+// ============ MAIN PLAY / YTMP3 PLUGIN COMMAND ============
 cmd({
     pattern: "ytmp3",
-    alias: ["song", "audio", "play"],
-    desc: "🎵 Instant Download YouTube audio via Faizan API",
+    alias: ["play", "song", "audio", "naat"],
+    desc: "🎵 Instant Download YouTube audio via multi-engine layout",
     category: "download",
     react: "🎵",
     filename: __filename
 }, async (conn, mek, m, { from, text, reply }) => {
 
     try {
-        if (!text) return reply("❌ *Please provide a song name or YouTube link!*");
+        const query = text ? text.trim() : '';
 
-        let videoUrl = text.trim();
+        if (!query) {
+            return await reply(`╭━〔 🎵 MUSIC ENGINE 〕━⬣
+┃ ⚠️ Example: .play pal pal 
+╰━━━━━━━━━━━━━━━━━━⬣
+> 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪`);
+        }
 
-        // Checking if text is query
-        if (!videoUrl.includes("youtube.com") && !videoUrl.includes("youtu.be")) {
-            const foundUrl = await searchYouTube(videoUrl);
-            if (foundUrl) {
-                videoUrl = foundUrl;
-            } else {
-                return reply("❌ *Song not found!*");
+        // Processing Reaction
+        await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
+
+        // Regex configuration for matching standard URLs
+        const isYoutubeLink = /(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/)?)([a-zA-Z0-9_-]{11})/i.test(query);
+
+        let videoUrl = query;
+        let title = 'Unknown YouTube Song';
+        let thumbnail = 'https://up6.cc/2026/05/177971006919991.png';
+        let duration = 'Unknown';
+        let author = 'YouTube Audio';
+        let views = '0';
+
+        // Scraping data via internal yt-search context parser
+        if (!isYoutubeLink) {
+            const search = await yts(query);
+            if (!search?.videos?.length) {
+                await conn.sendMessage(from, { react: { text: '❌', key: m.key } });
+                return await reply("❌ *No matching results found!*");
+            }
+            const video = search.videos[0];
+            videoUrl = video.url;
+            title = video.title || title;
+            thumbnail = video.thumbnail || thumbnail;
+            duration = video.timestamp || duration;
+            author = video.author?.name || author;
+            views = video.views ? video.views.toLocaleString() : views;
+        } else {
+            const videoId = query.match(/([a-zA-Z0-9_-]{11})/i)?.[1];
+            const search = await yts({ videoId: videoId });
+            if (search) {
+                title = search.title || title;
+                thumbnail = search.thumbnail || thumbnail;
+                duration = search.timestamp || duration;
+                videoUrl = search.url || query;
+                author = search.author?.name || author;
+                views = search.views ? search.views.toLocaleString() : views;
             }
         }
 
-        // Direct API request
-        const apiUrl = `https://faizan-api.vercel.app/api/ytmp3?url=${encodeURIComponent(videoUrl)}`;
-        const response = await axios.get(apiUrl);
-        const data = response.data;
-
-        if (!data || data.status !== true || !data.result || !data.result.download) {
-            return reply("❌ *Server busy! Try again.*");
+        // Dynamic Request Execution 
+        const apiResult = await getAudioFromApi(videoUrl);
+        
+        if (!apiResult.success || !apiResult.audioUrl) {
+            await conn.sendMessage(from, { react: { text: '❌', key: m.key } });
+            return await reply("❌ *Audio processing server is currently down!*");
         }
+        
+        const audioUrl = apiResult.audioUrl;
+        const safeTitle = (apiResult.title || title).replace(/[<>:"/\\|?*]/g, '_').trim();
 
-        const songTitle = data.result.title || "YouTube Audio";
-        const duration = data.result.duration ? `${data.result.duration}s` : "Unknown";
-        const audioUrl = data.result.download;
-
-        // Extract Video ID instantly
-        const videoId = videoUrl.includes("youtu.be/") ? videoUrl.split("youtu.be/")[1].split("?")[0] : videoUrl.split("v=")[1]?.split("&")[0];
-        const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : "https://up6.cc/2026/05/177971006919991.png";
-
-        // New Layout According to Your Requirement
-        const infoMessage = `*${songTitle}*\n\n` +
-                            `👤 *Channel:* YouTube Audio\n` +
+        // New Structured Output Layout requested by User
+        const infoMessage = `*${safeTitle}*\n\n` +
+                            `👤 *Channel:* ${author}\n` +
                             `⏱ *Duration:* ${duration}\n` +
-                            `👁 *Views:* Synchronizing...\n\n` +
-                            `> ⚡𝐷𝜣𝑊𝜨𝐿𝜣𝜟𝐷 𝐵𝜳 𝛧𝜜𝛪𝐷𝛪 𝛭𝐷📂⚡`;
+                            `👁 *Views:* ${views}\n\n` +
+                            `> ⚡ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪⚡`;
 
         // Step 1: Send Details Card with Image
         const sentInfo = await conn.sendMessage(from, {
-            image: { url: thumbnailUrl },
+            image: { url: thumbnail },
             caption: infoMessage,
             contextInfo: {
                 forwardingScore: 999,
@@ -77,14 +134,18 @@ cmd({
             },
         }, { quoted: m });
 
-        // Step 2: Instant Stream Upload
+        // Step 2: Send Audio File quoting the details card above
         await conn.sendMessage(from, {
             audio: { url: audioUrl },
             mimetype: 'audio/mpeg',
-            ptt: false
+            fileName: `${safeTitle}.mp3`
         }, { quoted: sentInfo });
 
+        // Success Reaction Completion
+        await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
+
     } catch (e) {
-        console.error(e);
+        console.error("Advanced Music Play Error:", e);
+        await conn.sendMessage(from, { react: { text: '❌', key: m.key } });
     }
 });
