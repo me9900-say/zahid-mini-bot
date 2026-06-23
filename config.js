@@ -51,7 +51,7 @@ module.exports = {
     GOODBYE_IMAGE: process.env.GOODBYE_IMAGE || null,
     
     GROUP_INVITE_LINK: process.env.GROUP_INVITE_LINK || 'https://chat.whatsapp.com/B9aQvczskhr7gekKrAjCsm?s=cl&p=a&mlu=0&amv=1',
-    
+    ANTI_LINK: true,  // Add this anywhere in config
     // ===========================================================
     // 6. SÉCURITÉ & ANTI-CALL
     // ===========================================================
