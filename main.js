@@ -29,9 +29,16 @@ const {
     getStatsForNumber
 } = require('./lib/database');
 const { handleAntidelete } = require('./lib/antidelete');
-const { handleAntiLink } = require('./lib/antiLink');
-// ✅ AUTO REACT + ANTILINK DATA FUNCTIONS — YEH LINE ADD KI HAI
-const { getAntilinkSettings, getAutoreactSettings, getWarn, setWarn, clearWarn } = require('./data/Antilink');
+
+// ✅ FIX 1: Sahi imports add kiye — pehle yeh missing the jis se crash hota tha
+const {
+    getAntilinkSettings,
+    getAutoreactSettings,
+    setAntilinkSettings,
+    getWarn,
+    setWarn,
+    clearWarn
+} = require('./data/Antilink');
 
 const express = require('express');
 const fs = require('fs-extra');
@@ -46,12 +53,10 @@ const prefix = config.PREFIX;
 const mode = config.MODE || config.WORK_TYPE;
 const router = express.Router();
 
-
 connectdb();
 
 const activeSockets = new Map();
 const socketCreationTime = new Map();
-
 
 function createzaidiStore() {
     const store = {
@@ -75,7 +80,6 @@ function createzaidiStore() {
     return store;
 }
 
-// Utility functions
 const createSerial = (size) => crypto.randomBytes(size).toString('hex').slice(0, size);
 
 const getGroupAdmins = (participants) => {
@@ -117,32 +121,11 @@ for (const file of pluginFiles) {
     catch (e) { zaidiLog(`Failed to load plugin ${file}: ${e.message}`, 'error'); }
 }
 
-
+// ✅ FIX 2: setupCallHandlers se galat code hataya — mek yahan exist hi nahi karta tha
 async function setupCallHandlers(socket, number) {
     socket.ev.on('call', async (calls) => {
         try {
             const userConfig = await getUserConfigFromMongoDB(number);
-          // 🔥 ANTI-LINK SYSTEM 🔥
-if (mek.key && !mek.key.fromMe) {
-    const isGroup = mek.key.remoteJid.endsWith('@g.us');
-    let isAdmins = false;
-    let isBotAdmins = false;
-    
-    if (isGroup) {
-        try {
-            const groupMetadata = await conn.groupMetadata(mek.key.remoteJid);
-            const participants = groupMetadata.participants;
-            const sender = mek.key.participant || mek.key.remoteJid;
-            const botJid = conn.user.id.split(':')[0] + '@s.whatsapp.net';
-            
-            isAdmins = participants.some(p => p.id === sender && (p.admin === 'admin' || p.admin === 'superadmin'));
-            isBotAdmins = participants.some(p => p.id === botJid && (p.admin === 'admin' || p.admin === 'superadmin'));
-        } catch (_) {}
-    }
-    
-    await handleAntiLink(conn, mek, mek.key.remoteJid, isGroup, isAdmins, isBotAdmins);
-        }
-            
             if (userConfig.ANTI_CALL !== 'true') return;
             for (const call of calls) {
                 if (call.status !== 'offer') continue;
@@ -203,7 +186,6 @@ function setupAutoRestart(socket, number) {
     });
 }
 
-
 async function zaidiPair(number, res = null) {
     let connectionLockKey;
     const sanitizedNumber = number.replace(/[^0-9]/g, '');
@@ -226,7 +208,6 @@ async function zaidiPair(number, res = null) {
         }
         global[connectionLockKey] = true;
 
-        // Check MongoDB session
         const existingSession = await getSessionFromMongoDB(sanitizedNumber);
 
         if (!existingSession) {
@@ -236,7 +217,6 @@ async function zaidiPair(number, res = null) {
                 zaidiLog(`Cleaned leftover local session for ${sanitizedNumber}`, 'info');
             }
         } else {
-            // Session exists - restore from MongoDB
             fs.ensureDirSync(sessionPath);
             fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(existingSession, null, 2));
             zaidiLog(`🔄 Restored existing session from MongoDB for ${sanitizedNumber}`, 'success');
@@ -244,7 +224,6 @@ async function zaidiPair(number, res = null) {
 
         const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
         const logger = pino({ level: process.env.NODE_ENV === 'production' ? 'fatal' : 'debug' });
-
         const zaidiStore = createzaidiStore();
 
         const conn = makeWASocket({
@@ -274,11 +253,9 @@ async function zaidiPair(number, res = null) {
         activeSockets.set(sanitizedNumber, conn);
         zaidiStore.bind(conn.ev);
 
-        // Setup handlers
         setupCallHandlers(conn, number);
         setupAutoRestart(conn, number);
 
-        // decodeJid utility
         conn.decodeJid = jid => {
             if (!jid) return jid;
             if (/:\d+@/gi.test(jid)) {
@@ -301,7 +278,6 @@ async function zaidiPair(number, res = null) {
             return trueFileName;
         };
 
-        // Pairing Code
         if (!conn.authState.creds.registered) {
             zaidiLog(`🔐 Starting NEW pairing process for ${sanitizedNumber}`, 'info');
             try {
@@ -325,7 +301,6 @@ async function zaidiPair(number, res = null) {
             }
         }
 
-        // Save creds on update
         conn.ev.on('creds.update', async () => {
             await saveCreds();
             const fileContent = await fs.readFile(path.join(sessionPath, 'creds.json'), 'utf8');
@@ -338,12 +313,10 @@ async function zaidiPair(number, res = null) {
             }
         });
 
-        // Anti-delete
         conn.ev.on('messages.update', async (updates) => {
             await handleAntidelete(conn, updates, zaidiStore);
         });
 
-        // Connection update
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
@@ -353,7 +326,7 @@ async function zaidiPair(number, res = null) {
                 if (!existingSession) {
                     await conn.sendMessage(userJid, {
                         image: { url: config.IMAGE_PATH },
-                        caption: `\n╭────────────────────◇\n│✦ *𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 — CONNECTED* 🔥\n│✦ Type *${prefix}menu* to see all commands 💫\n│✦ Prefix 『 ${prefix} 』  Mode 〔${mode}〕\n╰────────────────────○\n*© Powered by 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪*`
+                        caption: `\n╭────────────────────◇\n│✦ *𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪 — CONNECTED* 🔥\n│✦ Type *${prefix}menu* to see all commands 💫\n│✦ Prefix 『 ${prefix} 』  Mode 〔${mode}〕\n╰────────────────────────────○\n*© Powered by 𓆩𝐙𝐀𝐈𝐃𝐈-𝐌𝐃𓆪*`
                     });
                 }
             }
@@ -362,7 +335,6 @@ async function zaidiPair(number, res = null) {
                 if (reason === DisconnectReason.loggedOut) zaidiLog(`Session logged out.`, 'error');
             }
         });
-
 
         conn.ev.on('messages.upsert', async (msg) => {
             try {
@@ -486,12 +458,13 @@ async function zaidiPair(number, res = null) {
                 });
 
                 // ==================== ANTILINK HANDLER ====================
-                if (isGroup && body && !mek.key.fromMe) {
+                // ✅ Sirf non-fromMe group messages par check karo
+                if (isGroup && body && !mek.key.fromMe && !isOwner) {
                     try {
                         const linkRegex = /https?:\/\/[^\s]+|www\.[^\s]+|chat\.whatsapp\.com\/[^\s]+|t\.me\/[^\s]+|bit\.ly\/[^\s]+/gi;
                         if (linkRegex.test(body)) {
                             const alSettings = await getAntilinkSettings(from);
-                            if (alSettings.enabled && !isAdmins && !isOwner) {
+                            if (alSettings.enabled && !isAdmins) {
                                 if (isBotAdmins) {
                                     try { await conn.sendMessage(from, { delete: mek.key }); } catch (_) {}
                                     const currentWarns = getWarn(from, sender) + 1;
@@ -510,6 +483,12 @@ async function zaidiPair(number, res = null) {
                                             mentions: [sender]
                                         });
                                     }
+                                } else {
+                                    // Bot admin nahi hai — sirf warn karo
+                                    await conn.sendMessage(from, {
+                                        text: `⚠️ @${sender.split('@')[0]} link share mat karo! Bot ko admin banao taake delete kar sake.`,
+                                        mentions: [sender]
+                                    });
                                 }
                             }
                         }
@@ -517,6 +496,7 @@ async function zaidiPair(number, res = null) {
                 }
 
                 // ==================== AUTOREACT HANDLER ====================
+                // ✅ Sab messages par react karo (group + inbox + DM) — sirf bot ke apne messages pe nahi
                 if (!mek.key.fromMe) {
                     try {
                         const arSettings = await getAutoreactSettings(sanitizedNumber);
@@ -524,7 +504,9 @@ async function zaidiPair(number, res = null) {
                             const shouldReact = (isGroup && arSettings.groupReact) || (!isGroup && arSettings.inboxReact);
                             const passFilter = arSettings.cmdOnly ? isCmd : true;
                             if (shouldReact && passFilter) {
-                                const emojis = arSettings.emojis && arSettings.emojis.length ? arSettings.emojis : ['❤️', '😍', '🔥', '👑', '💫'];
+                                const emojis = arSettings.emojis && arSettings.emojis.length
+                                    ? arSettings.emojis
+                                    : ['❤️', '😍', '🔥', '👑', '💫', '✨', '😎', '🤩', '💕', '🌹'];
                                 const emoji = emojis[Math.floor(Math.random() * emojis.length)];
                                 await conn.sendMessage(from, { react: { text: emoji, key: mek.key } });
                             }
@@ -542,7 +524,6 @@ async function zaidiPair(number, res = null) {
         if (connectionLockKey) global[connectionLockKey] = false;
     }
 }
-
 
 router.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pair.html')));
 router.get('/code', async (req, res) => { if (!req.query.number) return res.json({ error: 'Number required' }); await zaidiPair(req.query.number, res); });
@@ -621,8 +602,6 @@ router.get('/stats', async (req, res) => {
     } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
-
-
 async function autoReconnectFromMongoDB() {
     try {
         zaidiLog('Attempting auto-reconnect from MongoDB...', 'info');
@@ -640,8 +619,6 @@ async function autoReconnectFromMongoDB() {
 }
 
 setTimeout(() => { autoReconnectFromMongoDB(); }, 3000);
-
-
 
 process.on('exit', () => {
     activeSockets.forEach((socket, number) => {
