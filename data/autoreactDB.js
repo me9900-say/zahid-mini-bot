@@ -1,4 +1,4 @@
-const { getDB } = require('./db');
+const { getDB } = require('../lib/database');
 
 const COLLECTION = 'autoreacts';
 
@@ -7,7 +7,7 @@ async function getAutoreactSettings(userId) {
         const db = await getDB();
         const settings = await db.collection(COLLECTION).findOne({ userId });
         if (!settings) {
-            return { userId, enabled: false, groupReact: false, inboxReact: false, cmdOnly: false, emojis: ["❤️", "🔥", "✨"] };
+            return { userId, enabled: false, groupReact: true, inboxReact: true, cmdOnly: false, emojis: ["❤️", "🔥", "✨"] };
         }
         return settings;
     } catch (e) {
