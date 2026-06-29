@@ -1,7 +1,7 @@
 const { cmd } = require("../zaidi");
 
 cmd({
-  pattern: "vv",
+  pattern: "view",
   fromMe: false,
   desc: "Forward view-once media as normal",
   react: "📤",
@@ -60,7 +60,7 @@ cmd({
   // Send as normal message
   const msg = {
     [type]: { url: media.url },
-    caption: media.caption || "🙊"
+    caption: media.caption || ""
   };
 
   await client.sendMessage(sender, msg);
