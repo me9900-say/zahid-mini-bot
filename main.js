@@ -31,15 +31,7 @@ const {
 const { handleAntidelete } = require('./lib/antidelete');
 
 // ✅ FIX 1: Sahi imports add kiye — pehle yeh missing the jis se crash hota tha
-const {
-    getAntilinkSettings,
-    getAutoreactSettings,
-    setAntilinkSettings,
-    getWarn,
-    setWarn,
-    clearWarn
-} = require('./data/Antilink');
-// const { getAutoreactSettings, setAutoreactSettings } = require('./data/Antilink');  // isko comment kar do
+const { getAntilinkSettings, setAntilinkSettings, getWarn, setWarn, clearWarn } = require('./data/Antilink');
 const { getAutoreactSettings, setAutoreactSettings } = require('./data/autoreactDB');
 const express = require('express');
 const fs = require('fs-extra');
