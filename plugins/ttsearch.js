@@ -1,77 +1,53 @@
 const { cmd } = require('../zaidi');
-const axios = require('axios');
+const TikTokScraper = require('nexora-tiktok-search');
 
-// ===== TikTok SEARCH API (TikWM) =====
-async function searchTikTok(query, count = 5) {
-    try {
-        const url = `https://tikwm.com/api/search?keywords=${encodeURIComponent(query)}&count=${count}`;
-        const res = await axios.get(url);
-        return res.data.data?.videos || [];
-    } catch (e) {
-        console.error("Search API Error:", e.message);
-        return [];
-    }
-}
+const tiktok = new TikTokScraper();
 
 cmd({
     pattern: "ttsearch",
     alias: ["ts", "tiktoksearch", "tts"],
-    desc: "Search TikTok videos and send top 5 results",
+    desc: "Search TikTok videos (Better API)",
     category: "downloader",
     react: "🔍",
     filename: __filename
 },
-async (conn, mek, m, { from, args, reply, senderNumber }) => {
+async (conn, mek, m, { from, args, reply }) => {
 
-    // 1️⃣ Check query
     const query = args.join(' ');
     if (!query) {
         return reply("❌ Kuch search karo!\nExample: .ttsearch nisha pomi");
     }
 
-    await reply(`⏳ *"${query}"* ke liye search ho raha hai...`);
+    await reply(`⏳ *"${query}"* search ho raha hai...`);
 
     try {
-        const videos = await searchTikTok(query, 5);
+        // 10 results le rahe hain, 5 bhejenge
+        const results = await tiktok.search(query, 10);
 
-        if (!videos || videos.length === 0) {
-            return reply(`❌ *"${query}"* ke liye koi video nahi mili.`);
+        if (!results || results.length === 0) {
+            return reply(`❌ *"${query}"* ke liye koi video nahi mili.\n\n💡 Try karo:\n• Lamba keyword use karo\n• Kuch trending hashtag try karo`);
         }
 
-        // 2️⃣ Send first 5 videos
-        const total = Math.min(videos.length, 5);
+        const total = Math.min(results.length, 5);
         await reply(`✅ *${total}* videos mil gaye! Bhej raha hoon...`);
 
         for (let i = 0; i < total; i++) {
-            const video = videos[i];
-            const title = video.title || 'No Title';
-            const author = video.author?.username || 'Unknown';
-            const playUrl = video.play;
-
-            if (!playUrl) continue;
+            const video = results[i];
+            if (!video.downloadUrl) continue;
 
             try {
                 await conn.sendMessage(from, {
-                    video: { url: playUrl },
-                    caption: `🎬 *Video ${i+1}/${total}*\n📝 *Title:* ${title.slice(0, 100)}${title.length > 100 ? '...' : ''}\n👤 *Author:* @${author}\n❤️ *Likes:* ${video.digg_count || 0}\n💬 *Comments:* ${video.comment_count || 0}`,
-                    // Thumbnail optional: contextInfo ke sath nahi daal rahe, direct video bhej rahe
+                    video: { url: video.downloadUrl },
+                    caption: `🎬 *Video ${i+1}/${total}*\n📝 ${video.description?.slice(0, 100) || 'No Title'}${video.description?.length > 100 ? '...' : ''}\n👤 @${video.author || 'Unknown'}\n❤️ ${video.likes || 0} | 💬 ${video.comments || 0}`
                 }, { quoted: mek });
-
-                // ✨ 1 second ka delay taake WhatsApp bot ko block na kare
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
+                
+                // ✨ 1.5 sec delay (anti-ban)
+                await new Promise(resolve => setTimeout(resolve, 1500));
             } catch (sendErr) {
-                console.error(`Video ${i+1} send failed:`, sendErr.message);
-                // Agar ek fail ho toh agla send karo
+                console.error("Send error:", sendErr.message);
                 continue;
             }
         }
-
-        // Agar koi video send nahi hui toh batado
-        // (Already handled above, but just in case)
-        // Final message optional:
-        // await reply("✅ Sare videos bhej diye!");
-
     } catch (error) {
         console.error("TTSearch Error:", error);
         return reply("⚠️ Kuch gadbad ho gayi! Try again later.");
