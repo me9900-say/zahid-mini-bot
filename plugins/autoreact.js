@@ -1,34 +1,49 @@
 const { cmd } = require('../zaidi');
-const { getAutoreactSettings, setAutoreactSettings } = require('../data/autoreactDB');
+const { getUserConfigFromMongoDB, updateUserConfigInMongoDB } = require('../lib/database');
 
 cmd({
     pattern: "autoreact",
-    desc: "Auto-react on/off",
-    category: "main",
-    filename: __filename
-}, async (conn, mek, m, { from, senderNumber, reply }) => {
-    const args = m.text.split(' ').slice(1);
-    const action = args[0]?.toLowerCase();
-    const settings = await getAutoreactSettings(senderNumber);
+    desc: "Auto React On/Off (per user)",
+    category: "owner",
+    fromMe: true
+}, async (conn, mek, m, { reply, q }) => {
+    // Sender ka JID (unique identifier)
+    const sender = m.sender || m.key.remoteJid;
 
-    if (!action) {
-        return reply(`📌 *Status*\nEnabled: ${settings.enabled ? '✅' : '❌'}\nGroup: ${settings.groupReact ? '✅' : '❌'}\nCmdOnly: ${settings.cmdOnly ? '✅' : '❌'}\n\n.autoreact on/off\n.autoreact group on/off\n.autoreact cmdonly on/off`);
+    // Config fetch karein
+    let config = await getUserConfigFromMongoDB(sender);
+    if (!config) {
+        config = { AUTO_REACT: "false" }; // default
+    } else if (!config.AUTO_REACT) {
+        config.AUTO_REACT = "false";
     }
 
-    if (action === 'on' || action === 'off') {
-        settings.enabled = action === 'on';
-        await setAutoreactSettings(senderNumber, settings);
-        return reply(`✅ Auto-react ${action === 'on' ? 'on' : 'off'}`);
+    // Agar koi argument nahi diya toh status dikhayein
+    if (!q) {
+        return reply(
+`╭━━━〔 *📌 Auto React* 〕━━━⬣
+┃ ✅ *.autoreact on*
+┃ ❌ *.autoreact off*
+> Current Status: ${config.AUTO_REACT}
+╰━━━━━━━━━━━━━━━━⬣`
+        );
     }
-    if (action === 'group' && args[1]) {
-        settings.groupReact = args[1] === 'on';
-        await setAutoreactSettings(senderNumber, settings);
-        return reply(`✅ Group ${args[1] === 'on' ? 'on' : 'off'}`);
+
+    // ON
+    if (q.toLowerCase() === "on") {
+        config.AUTO_REACT = "true";
+        await updateUserConfigInMongoDB(sender, config);
+        await conn.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+        return reply("✅ *Auto React Enabled*");
     }
-    if (action === 'cmdonly' && args[1]) {
-        settings.cmdOnly = args[1] === 'on';
-        await setAutoreactSettings(senderNumber, settings);
-        return reply(`✅ CmdOnly ${args[1] === 'on' ? 'on' : 'off'}`);
+
+    // OFF
+    if (q.toLowerCase() === "off") {
+        config.AUTO_REACT = "false";
+        await updateUserConfigInMongoDB(sender, config);
+        await conn.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+        return reply("❌ *Auto React Disabled*");
     }
-    reply('❌ Wrong command');
+
+    return reply("❌ Use: .autoreact on/off");
 });
