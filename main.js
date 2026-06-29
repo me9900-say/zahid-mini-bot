@@ -39,7 +39,8 @@ const {
     setWarn,
     clearWarn
 } = require('./data/Antilink');
-
+// const { getAutoreactSettings, setAutoreactSettings } = require('./data/Antilink');  // isko comment kar do
+const { getAutoreactSettings, setAutoreactSettings } = require('./data/autoreactDB');
 const express = require('express');
 const fs = require('fs-extra');
 const path = require('path');
