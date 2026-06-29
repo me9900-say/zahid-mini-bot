@@ -1,68 +1,101 @@
+
+
 const { cmd } = require("../zaidi");
+const { downloadContentFromMessage, getContentType } = require('@whiskeysockets/baileys');
 
 cmd({
   pattern: "view",
   fromMe: false,
-  desc: "Forward view-once media as normal",
+  desc: "Bypass view-once media (download & re-upload)",
   react: "📤",
   filename: __filename
 }, async (client, mek, m, { reply, sender, from }) => {
-  const quoted = mek.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  if (!quoted) return reply("❌ Kisi view‑once message ko reply karke `view` likhein.");
 
-  let media = null;
-  let type = "";
-
-  // 1️⃣ ViewOnceV2 (latest)
-  if (quoted.viewOnceMessageV2) {
-    const inner = quoted.viewOnceMessageV2.message;
-    if (inner.imageMessage) {
-      media = inner.imageMessage;
-      type = "image";
-    } else if (inner.videoMessage) {
-      media = inner.videoMessage;
-      type = "video";
-    } else if (inner.audioMessage) {
-      media = inner.audioMessage;
-      type = "audio";
-    }
-  }
-  // 2️⃣ ViewOnce (older)
-  else if (quoted.viewOnceMessage) {
-    const inner = quoted.viewOnceMessage.message;
-    if (inner.imageMessage) {
-      media = inner.imageMessage;
-      type = "image";
-    } else if (inner.videoMessage) {
-      media = inner.videoMessage;
-      type = "video";
-    } else if (inner.audioMessage) {
-      media = inner.audioMessage;
-      type = "audio";
-    }
-  }
-  // 3️⃣ Normal media (if user mistakenly uses command)
-  else {
-    if (quoted.imageMessage) {
-      media = quoted.imageMessage;
-      type = "image";
-    } else if (quoted.videoMessage) {
-      media = quoted.videoMessage;
-      type = "video";
-    } else if (quoted.audioMessage) {
-      media = quoted.audioMessage;
-      type = "audio";
-    }
-  }
-
-  if (!media) return reply("❌ Yeh view‑once media nahi hai.");
-
-  // Send as normal message
-  const msg = {
-    [type]: { url: media.url },
-    caption: media.caption || ""
+  const sendReply = async (text) => {
+    await client.sendMessage(from, { text }, { quoted: mek });
   };
 
-  await client.sendMessage(sender, msg);
-  await reply("✅ Media forward kar diya (bina view‑once).");
+  try {
+    // Quoted message check
+    const quoted = mek.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    if (!quoted) {
+      return sendReply(`❌ Please reply to a view-once media message`);
+    }
+
+    // ✅ Sare viewonce wrappers try karo
+    const voWrappers = [
+      'viewOnceMessageV2',
+      'viewOnceMessageV2Extension',
+      'viewOnceMessage',
+    ];
+
+    let actualMsg = null;
+    for (const wrapper of voWrappers) {
+      if (quoted[wrapper]?.message) {
+        actualMsg = quoted[wrapper].message;
+        break;
+      }
+    }
+
+    // Direct unwrapped check
+    if (!actualMsg) {
+      const directType = getContentType(quoted);
+      if (directType === 'imageMessage' || directType === 'videoMessage' || directType === 'audioMessage') {
+        actualMsg = quoted;
+      }
+    }
+
+    if (!actualMsg) {
+      return sendReply(`❌ This is not a view-once message`);
+    }
+
+    const mediaType = getContentType(actualMsg);
+    const mediaData = actualMsg[mediaType];
+
+    if (!mediaData) {
+      return sendReply(`❌ No media found in this message`);
+    }
+
+    await reply(`⏳ Downloading view-once media...`);
+
+    // Download media
+    const stream = await downloadContentFromMessage(mediaData, mediaType.replace('Message', ''));
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
+
+    // Caption with footer
+    const caption = `${mediaData.caption || ''}\n\n> ✅ View-Once Bypassed`.trim();
+    const mentions = mediaData.contextInfo?.mentionedJid || [];
+
+    // Send based on media type
+    if (mediaType === 'imageMessage') {
+      await client.sendMessage(sender, { 
+        image: buffer, 
+        caption, 
+        mentions 
+      });
+    } else if (mediaType === 'videoMessage') {
+      await client.sendMessage(sender, { 
+        video: buffer, 
+        caption, 
+        mimetype: 'video/mp4', 
+        mentions 
+      });
+    } else if (mediaType === 'audioMessage') {
+      await client.sendMessage(sender, { 
+        audio: buffer, 
+        mimetype: 'audio/mp4', 
+        ptt: true 
+      });
+    } else {
+      return sendReply(`❌ Unsupported media type: ${mediaType}`);
+    }
+
+    await reply(`✅ View-once media forwarded successfully!`);
+
+  } catch (err) {
+    console.error('[VIEWONCE ERROR]', err.message);
+    return sendReply(`❌ Failed to bypass: ${err.message}`);
+  }
 });
