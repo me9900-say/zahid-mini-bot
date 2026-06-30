@@ -368,6 +368,13 @@ async function zaidiPair(number, res = null) {
                         const user = mek.key.participant;
                         await conn.sendMessage(user, { text: userConfig.AUTO_STATUS_MSG || config.AUTO_STATUS_MSG }, { quoted: mek });
                     }
+                    if (userConfig.AUTO_REACT === 'true' && !mek.key.fromMe) {
+                    try {
+                        const reactions = ['❤️','🔥','💐','🌼','😍','🥀','✨'];
+                        const randomEmoji = reactions[Math.floor(Math.random() * reactions.length)];
+                        await conn.sendMessage(from, { react: { text: randomEmoji, key: mek.key } });
+                    } catch (_) {}
+                    }
                     return;
                 }
 
